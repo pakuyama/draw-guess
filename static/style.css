@@ -277,3 +277,513 @@ h2.label {
   align-items: center;
   gap: 12px;
 }
+
+/* 그리기 도구 (T10) */
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin-top: 8px;
+}
+
+.tool-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tool {
+  min-width: 32px;
+  height: 32px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--card);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.tool[aria-pressed="true"] {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.tool.swatch {
+  width: 28px;
+  min-width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--swatch);
+}
+
+.tool.width::before {
+  content: "";
+  display: block;
+  width: var(--dot);
+  height: var(--dot);
+  margin: auto;
+  border-radius: 50%;
+  background: var(--text);
+}
+
+.tool.text {
+  padding: 0 10px;
+  font-size: 0.85rem;
+}
+
+
+/* 게임 화면 (T12~T17) */
+
+.center {
+  text-align: center;
+}
+
+.screen.game {
+  width: 100%;
+  max-width: 1100px;
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr) 260px;
+  grid-template-areas:
+    "top top top"
+    "score stage chat";
+  gap: 12px;
+  align-self: start;
+}
+
+.game-top {
+  grid-area: top;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.round {
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.hint {
+  color: var(--muted);
+}
+
+.hint-value {
+  color: var(--text);
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+}
+
+.timer {
+  min-width: 7em;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.timer.urgent {
+  color: var(--error);
+  font-weight: 700;
+}
+
+.scoreboard,
+.chat,
+.stage {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.scoreboard {
+  grid-area: score;
+  align-self: start;
+}
+
+.scoreboard ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.score-row {
+  display: grid;
+  grid-template-columns: 1.4em minmax(0, 1fr) auto;
+  grid-template-areas:
+    "rank name tag"
+    "rank points points";
+  gap: 0 6px;
+  padding: 8px 4px;
+  border-bottom: 1px solid var(--line);
+}
+
+.score-row:last-child {
+  border-bottom: 0;
+}
+
+.score-row.me .score-name {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.score-row.away {
+  opacity: 0.45;
+}
+
+.score-rank {
+  grid-area: rank;
+  color: var(--muted);
+}
+
+.score-name {
+  grid-area: name;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.score-row .tag {
+  grid-area: tag;
+}
+
+.score-points {
+  grid-area: points;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.stage {
+  grid-area: stage;
+}
+
+.stage .board-wrap {
+  position: relative;
+  /* 창 높이에 맞춰 캔버스가 화면 안에 들어오게 한다 (위쪽 줄·도구 높이를 뺀 만큼) */
+  max-width: min(600px, calc(100vh - 230px));
+  min-width: 260px;
+  margin: 0 auto;
+}
+
+.stage .toolbar {
+  justify-content: center;
+}
+
+.sound-toggle {
+  margin-left: 8px;
+  padding: 4px 10px;
+  font-size: 0.8rem;
+}
+
+.top-right {
+  display: flex;
+  align-items: center;
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 16px;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 8px;
+}
+
+.overlay-title {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.overlay-sub {
+  margin: 0;
+  color: var(--muted);
+}
+
+.choices {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.turn-scores {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px 16px;
+}
+
+.chat {
+  grid-area: chat;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: 640px;
+}
+
+.chat-log {
+  flex: 1;
+  min-height: 160px;
+  margin: 0 0 8px;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+  font-size: 0.95rem;
+}
+
+.chat-log li {
+  padding: 3px 0;
+  overflow-wrap: anywhere;
+}
+
+.chat-log .system {
+  color: var(--muted);
+}
+
+.chat-log .correct {
+  color: #2e7d32;
+  font-weight: 700;
+}
+
+.chat-log .notice {
+  color: var(--accent);
+}
+
+.chat-log .insider {
+  color: #2e7d32;
+}
+
+.chat-form {
+  display: flex;
+  gap: 6px;
+}
+
+.chat-form input {
+  min-width: 0;
+}
+
+.chat-form .btn {
+  flex: none;
+  white-space: nowrap;
+}
+
+/* 결과 화면 */
+
+.podium {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 10px;
+  margin: 24px 0 16px;
+}
+
+.podium-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 30%;
+}
+
+.podium-name {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+
+.podium-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 2px;
+  width: 100%;
+  padding-top: 10px;
+  border: 1px solid var(--line);
+  border-bottom: 0;
+  border-radius: 8px 8px 0 0;
+  background: var(--bg);
+}
+
+.place-1 .podium-block {
+  height: 130px;
+  background: #fff4cc;
+}
+
+.place-2 .podium-block {
+  height: 100px;
+}
+
+.place-3 .podium-block {
+  height: 80px;
+}
+
+.rank-rest {
+  margin: 0 0 20px;
+  padding: 0;
+  list-style: none;
+  color: var(--muted);
+}
+
+.rank-rest li {
+  padding: 4px 0;
+}
+
+.result-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.result-buttons .btn {
+  flex: 1;
+}
+
+/* 화면 폭이 좁을 때 (태블릿): 채팅을 아래로 */
+@media (max-width: 1000px) {
+  .screen.game {
+    grid-template-columns: 160px minmax(0, 1fr);
+    grid-template-areas:
+      "top top"
+      "score stage"
+      "chat chat";
+  }
+
+  .chat {
+    max-height: 320px;
+  }
+}
+
+/* 연결 상태 알림 (T20) */
+.conn-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  padding: 8px 16px;
+  text-align: center;
+  background: #fff4cc;
+  border-bottom: 1px solid #ecd98a;
+  font-size: 0.95rem;
+}
+
+.player.away {
+  opacity: 0.45;
+}
+
+/* 휴대폰 세로 화면 (T22, wireframes.md 5장): 위쪽 줄 - 점수판 한 줄 - 캔버스 - 도구 - 채팅 */
+@media (max-width: 640px) {
+  body {
+    padding: 8px;
+    align-items: flex-start;
+  }
+
+  .card {
+    padding: 24px 18px;
+  }
+
+  .screen.game {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "top"
+      "score"
+      "stage"
+      "chat";
+    gap: 8px;
+  }
+
+  .game-top {
+    padding: 8px 10px;
+    gap: 6px;
+    font-size: 0.9rem;
+  }
+
+  .hint-value {
+    font-size: 1.05rem;
+    letter-spacing: 0.12em;
+  }
+
+  .timer {
+    min-width: 0;
+  }
+
+  .sound-toggle {
+    padding: 4px 6px;
+  }
+
+  .scoreboard {
+    padding: 6px 8px;
+  }
+
+  /* 점수판을 옆으로 넘기는 한 줄로 */
+  .scoreboard ol {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+  }
+
+  .score-row {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    font-size: 0.85rem;
+  }
+
+  .score-row:last-child {
+    border-bottom: 1px solid var(--line);
+  }
+
+  .score-rank {
+    display: none;
+  }
+
+  .score-name {
+    max-width: 6em;
+  }
+
+  .stage {
+    padding: 8px;
+  }
+
+  .stage .board-wrap {
+    max-width: none;
+    min-width: 0;
+  }
+
+  .tool-group {
+    gap: 4px;
+  }
+
+  .tool.swatch {
+    width: 26px;
+    min-width: 26px;
+    height: 26px;
+  }
+
+  .chat {
+    max-height: none;
+  }
+
+  .chat-log {
+    min-height: 0;
+    max-height: 140px;
+  }
+
+  .podium-block {
+    font-size: 0.9rem;
+  }
+}

@@ -101,6 +101,55 @@ updateMainButtons();
 const socket = io();
 let currentCode = null;
 
+// ---------- 다시 연결 (T20) ----------
+// 들어간 방을 이 탭(sessionStorage)에 기억해 두고, 새로고침하거나 연결이 잠깐 끊겼다가
+// 다시 붙으면 자동으로 같은 자리로 돌아간다. 다른 탭에는 기억이 없으므로 중복 입장은 여전히 막힌다.
+
+let rejoining = false;
+
+function loadSession() {
+  try {
+    return JSON.parse(sessionStorage.getItem("dg_session") || "null");
+  } catch (e) {
+    return null;
+  }
+}
+
+function saveSession(code) {
+  try {
+    sessionStorage.setItem("dg_session", JSON.stringify({ code, nickname: nickname() }));
+  } catch (e) {
+    // 저장이 막히면 새로고침 때 다시 연결되지 않을 뿐 게임은 된다
+  }
+}
+
+function clearSession() {
+  try {
+    sessionStorage.removeItem("dg_session");
+  } catch (e) {}
+}
+
+function showBanner(text) {
+  const banner = $("conn-banner");
+  banner.textContent = text;
+  banner.hidden = !text;
+}
+
+socket.on("connect", () => {
+  const session = loadSession();
+  const code = currentCode || (session && session.code);
+  if (!code || !session) return;
+  // 초대 링크로 다른 방에 들어온 경우에는 예전 방으로 돌아가지 않는다
+  if (!currentCode && invitedCode && invitedCode.toUpperCase() !== code) return;
+  rejoining = true;
+  showBanner("다시 연결하는 중...");
+  socket.emit("join_room", { code, player_id: playerId, nickname: session.nickname, rejoin: true });
+});
+
+socket.on("disconnect", () => {
+  if (currentCode) showBanner("연결이 끊겼어요. 다시 연결하는 중...");
+});
+
 $("btn-create").addEventListener("click", () => {
   saveValue("dg_nickname", nickname());
   socket.emit("create_room", { player_id: playerId, nickname: nickname() });
@@ -112,6 +161,9 @@ $("btn-join").addEventListener("click", () => {
 });
 
 function enterLobby(code) {
+  rejoining = false;
+  showBanner("");
+  if (code !== currentCode || !loadSession()) saveSession(code);
   currentCode = code;
   $("lobby-code").textContent = code;
   history.replaceState(null, "", "/?room=" + code);
@@ -122,13 +174,25 @@ socket.on("room_created", (data) => enterLobby(data.code));
 socket.on("room_joined", (data) => enterLobby(data.code));
 
 socket.on("error", (data) => {
+  if (rejoining) {
+    // 방이 없어졌거나 30초가 지나 자리가 없어졌다
+    rejoining = false;
+    currentCode = null;
+    clearSession();
+    showBanner("");
+    showScreen("main");
+    showError("방에 다시 들어가지 못했어요. 방이 끝났거나 자리가 없어졌어요.");
+    return;
+  }
+  if (currentCode) {
+    // 방 안에서 생긴 오류(예: 시작 조건)는 대기실 안내 줄에 보여 준다
+    $("lobby-status").textContent = data.message;
+    return;
+  }
   showScreen("main");
   showError(data.message);
 });
 
-socket.on("disconnect", () => {
-  if (currentCode) $("lobby-status").textContent = "서버와 연결이 끊겼어요. 새로고침해 주세요.";
-});
 
 // ---------- 대기실 ----------
 
@@ -136,6 +200,10 @@ socket.on("room_state", (state) => {
   if (state.code !== currentCode) return;
   renderPlayers(state);
   renderStart(state);
+  // 방 상태에 맞는 화면으로 바꾼다 (게임 화면 내용은 game.js가 그린다)
+  if (state.state === "waiting") showScreen("lobby");
+  else if (state.state === "game_end") showScreen("result");
+  else showScreen("game");
 });
 
 function renderPlayers(state) {
@@ -146,6 +214,7 @@ function renderPlayers(state) {
     const li = document.createElement("li");
     li.className = "player";
     if (p.player_id === playerId) li.classList.add("me");
+    if (!p.connected) li.classList.add("away");
 
     const name = document.createElement("span");
     name.textContent = p.nickname; // textContent로 넣어 닉네임 속 HTML이 실행되지 않게 한다
@@ -185,15 +254,28 @@ function renderStart(state) {
   }
 }
 
-// 게임 시작은 T12에서 서버와 연결한다
 $("btn-start").addEventListener("click", () => {
   socket.emit("start_game", {});
 });
 
-$("btn-leave").addEventListener("click", () => {
-  // 방에서 나가는 처리(목록에서 빼기, 방장 넘기기)는 T21에서 서버에 추가한다
-  location.href = "/";
+// [나가기]: 서버에서 자리를 빼고(방장·출제자면 넘김) 첫 화면으로 간다
+function leaveRoom() {
+  clearSession();
+  currentCode = null;
+  socket.emit("leave_room", {});
+  setTimeout(() => (location.href = "/"), 600); // 응답이 없어도 이동
+}
+
+socket.on("left_room", () => (location.href = "/"));
+
+// 같은 자리로 다른 창(탭 복제 등)이 들어오면 이 창은 멈춘다
+socket.on("replaced", () => {
+  currentCode = null;
+  showBanner("");
+  showScreen("main");
+  showError("다른 창에서 같은 자리로 들어왔어요. 이 창은 닫아 주세요.");
 });
+$("btn-leave").addEventListener("click", leaveRoom);
 
 // ---------- 복사 ----------
 
