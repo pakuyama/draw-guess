@@ -40,6 +40,12 @@ def index():
     return render_template("index.html")
 
 
+@app.route("/healthz")
+def healthz():
+    """배포 서버가 살아 있는지 확인하는 주소 (Render 상태 확인용)."""
+    return {"ok": True, "rooms": len(game.rooms)}
+
+
 # ---------- 보내기 ----------
 
 
@@ -300,5 +306,5 @@ def on_leave_room(_data=None):
 
 if __name__ == "__main__":
     # 개발용 실행. allow_unsafe_werkzeug: 터미널이 아닌 곳(IDE 실행 버튼 등)에서도 켜지도록 허용
-    # 실제 배포(T26)에서는 gunicorn 등 운영용 서버를 사용한다.
+    # 실제 배포는 gunicorn으로 실행한다 (render.yaml의 startCommand).
     socketio.run(app, host="0.0.0.0", port=5000, debug=True, allow_unsafe_werkzeug=True)

@@ -1,0 +1,14 @@
+# Render 배포 설정 (T26). Render 대시보드 > New > Blueprint 에서 이 저장소를 고르면 이대로 만들어진다.
+services:
+  - type: web
+    name: draw-guess
+    runtime: python
+    plan: free
+    region: singapore  # 한국에서 가장 가까운 지역
+    buildCommand: pip install -r requirements.txt
+    # 방 정보를 서버 메모리에 두므로 워커는 반드시 1개. 스레드로 여러 연결을 받는다.
+    startCommand: gunicorn -w 1 --threads 100 --timeout 120 -b 0.0.0.0:$PORT app:app
+    healthCheckPath: /healthz
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.7"
