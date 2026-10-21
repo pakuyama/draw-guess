@@ -54,7 +54,20 @@ def on_join_room(data):
     send_room_state(room)
 
 
-# TODO T9: stroke / undo / clear
+@socketio.on("stroke")
+def on_stroke(data):
+    """출제자가 그린 선 조각을 방의 다른 사람에게 전달한다. 이상한 데이터는 조용히 버린다."""
+    room, player = game.find_by_sid(request.sid)
+    if room is None:
+        return
+    try:
+        part = room.add_stroke_part(player.player_id, data)
+    except ValueError:
+        return
+    emit("stroke", part, to=room.code, include_self=False)
+
+
+# TODO T10: undo / clear
 # TODO T12~T15: start_game / choose_word / chat / 타이머
 # TODO T20~T21: disconnect / 재접속 / 방장 넘기기
 
