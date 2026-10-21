@@ -7,7 +7,10 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- 개발용 연습 페이지 (T8). 게임 화면에 붙이는 건 T17. 주소: /static/canvas-test.html -->
+  <!-- 개발용 연습 페이지 (T8~T9). 게임 화면에 붙이는 건 T17.
+       혼자 그리기: /static/canvas-test.html
+       방에 연결:   /static/canvas-test.html?room=방코드&name=닉네임  (출제자 화면의 선이 다른 사람에게 전달되는지 확인용.
+                    출제자를 정하는 게임 시작은 T12에서 생기므로, 지금은 자동 테스트에서만 그리기 권한을 줄 수 있다) -->
   <main class="card wide">
     <h1 class="logo small">그림판 연습</h1>
     <p class="note">마우스나 손가락으로 그려 보세요. 창 크기를 바꿔도 그림이 그대로 남아야 해요.</p>
@@ -20,6 +23,7 @@
     </div>
   </main>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
   <script src="canvas.js"></script>
   <script>
     const info = document.getElementById("info");
@@ -33,6 +37,30 @@
       board.clear();
       info.textContent = "";
     });
+
+    // ?room=코드&name=닉네임 이 있으면 방에 연결한다 (room=new 이면 새 방)
+    const params = new URLSearchParams(location.search);
+    if (params.get("room") && window.io) {
+      let playerId = null;
+      try { playerId = localStorage.getItem("dg_player_id"); } catch (e) {}
+      if (!playerId) {
+        playerId = "p-" + Math.random().toString(36).slice(2, 12);
+        try { localStorage.setItem("dg_player_id", playerId); } catch (e) {}
+      }
+      const name = params.get("name") || "연습";
+      const socket = io();
+      window.socket = socket;
+      board.enabled = false;
+      if (params.get("room") === "new") socket.emit("create_room", { player_id: playerId, nickname: name });
+      else socket.emit("join_room", { code: params.get("room"), player_id: playerId, nickname: name });
+      socket.on("room_state", (state) => {
+        window.roomState = state;
+        board.enabled = state.state === "drawing" && state.drawer_id === playerId;
+        info.textContent = `방 ${state.code} · ${board.enabled ? "내가 출제자" : "보는 중"}`;
+      });
+      socket.on("error", (data) => (info.textContent = data.message));
+      linkBoardToSocket(board, socket);
+    }
   </script>
 </body>
 </html>
