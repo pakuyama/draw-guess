@@ -61,5 +61,6 @@ python app.py
 
 - [요구사항](docs/requirements.md): 게임이 무엇을 해야 하는지
 - [설계](docs/design.md): 파일 구조, 데이터, 통신 방식
+- [와이어프레임](docs/wireframes.md): 화면 4개 배치
 - [작업 순서](docs/tasks.md): 단계별 구현 계획과 일정
 - [진행 상황](docs/progress.md): 지금 어디까지 했는지
