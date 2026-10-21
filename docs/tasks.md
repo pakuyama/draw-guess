@@ -4,7 +4,7 @@
 
 ## 1주차 — 준비
 
-- [ ] T1. 개발 환경: Python 가상환경, `requirements.txt` 설치, `python app.py`로 "Hello" 페이지 확인
+- [x] T1. 개발 환경: Python 가상환경, `requirements.txt` 설치, `python app.py`로 "Hello" 페이지 확인
 - [ ] T2. 화면 와이어프레임 4개(메인·대기실·게임·결과) 스케치
 - [ ] T3. `data/words.json`에 제시어 100개 1차 수집
 
