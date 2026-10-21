@@ -1,20 +1,24 @@
 """게임 규칙: 방, 플레이어, 정답 판정, 점수.
 
 이 파일은 Flask나 Socket.IO를 모릅니다. (AGENTS.md 참고)
-지금은 뼈대만 있으며, docs/tasks.md 순서대로 채워 나갑니다.
 """
 from __future__ import annotations
 
 import json
 import random
-import string
 from dataclasses import dataclass, field
 from pathlib import Path
 
 MAX_PLAYERS = 8
+MIN_PLAYERS = 2
 TURN_SECONDS = 80
 TOTAL_ROUNDS = 3
 WORDS_PATH = Path(__file__).parent / "data" / "words.json"
+NICKNAME_MAX = 10
+
+# 방 코드에 쓰는 글자. 헷갈리는 0/O, 1/I/L은 뺀다.
+CODE_CHARS = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
+CODE_LENGTH = 6
 
 
 @dataclass
@@ -44,11 +48,47 @@ class Room:
     strokes: list[dict] = field(default_factory=list)
     turn_started_at: float = 0.0
 
+    def is_full(self) -> bool:
+        """정원(8명)이 찼는지."""
+        return len(self.players) >= MAX_PLAYERS
+
+    def find_player(self, player_id: str) -> Player | None:
+        """player_id로 플레이어를 찾는다. 없으면 None."""
+        for player in self.players:
+            if player.player_id == player_id:
+                return player
+        return None
+
     def add_player(self, player: Player) -> None:
-        """플레이어를 추가한다. 가득 차면 ValueError."""
-        if len(self.players) >= MAX_PLAYERS:
-            raise ValueError("방이 가득 찼어요.")
+        """플레이어를 추가한다. 가득 찼거나 이미 있는 player_id면 ValueError."""
+        if self.is_full():
+            raise ValueError(f"방이 가득 찼어요. ({MAX_PLAYERS}/{MAX_PLAYERS})")
+        if self.find_player(player.player_id):
+            raise ValueError("이미 방에 있는 플레이어예요.")
         self.players.append(player)
+
+    def can_start(self) -> bool:
+        """대기 중이고 2명 이상이면 시작할 수 있다."""
+        return self.state == "waiting" and len(self.players) >= MIN_PLAYERS
+
+    def public_state(self) -> dict:
+        """모든 참가자에게 보내도 되는 방 정보. 제시어(word)는 넣지 않는다."""
+        return {
+            "code": self.code,
+            "host_id": self.host_id,
+            "state": self.state,
+            "round": self.round,
+            "players": [
+                {
+                    "player_id": p.player_id,
+                    "nickname": p.nickname,
+                    "score": p.score,
+                    "guessed": p.guessed,
+                    "connected": p.connected,
+                }
+                for p in self.players
+            ],
+        }
 
 
 rooms: dict[str, Room] = {}
@@ -57,9 +97,36 @@ rooms: dict[str, Room] = {}
 def make_room_code() -> str:
     """겹치지 않는 6자리 방 코드를 만든다."""
     while True:
-        code = "".join(random.choices(string.ascii_uppercase + string.digits, k=6))
+        code = "".join(random.choices(CODE_CHARS, k=CODE_LENGTH))
         if code not in rooms:
             return code
+
+
+def clean_nickname(nickname: str) -> str:
+    """닉네임 앞뒤 공백을 지우고 10자로 자른다. 비어 있으면 ValueError."""
+    name = (nickname or "").strip()[:NICKNAME_MAX]
+    if not name:
+        raise ValueError("닉네임을 입력해 주세요.")
+    return name
+
+
+def normalize_code(code: str) -> str:
+    """사용자가 입력한 방 코드를 대문자로 바꾸고 공백을 지운다."""
+    return (code or "").replace(" ", "").strip().upper()
+
+
+def create_room(player_id: str, nickname: str) -> Room:
+    """새 방을 만들고 만든 사람을 방장으로 넣는다."""
+    host = Player(player_id=player_id, nickname=clean_nickname(nickname))
+    room = Room(code=make_room_code(), host_id=player_id)
+    room.add_player(host)
+    rooms[room.code] = room
+    return room
+
+
+def get_room(code: str) -> Room | None:
+    """방 코드로 방을 찾는다. 없으면 None."""
+    return rooms.get(normalize_code(code))
 
 
 def load_words() -> dict[str, list[str]]:
