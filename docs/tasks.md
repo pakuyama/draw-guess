@@ -6,7 +6,7 @@
 
 - [x] T1. 개발 환경: Python 가상환경, `requirements.txt` 설치, `python app.py`로 "Hello" 페이지 확인
 - [x] T2. 화면 와이어프레임 4개(메인·대기실·게임·결과) 스케치 → `docs/wireframes.md`
-- [ ] T3. `data/words.json`에 제시어 100개 1차 수집
+- [x] T3. `data/words.json`에 제시어 100개 1차 수집
 
 ## 2주차 — 방 만들기 · 참가 (R1, R2)
 
