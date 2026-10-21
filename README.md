@@ -16,9 +16,16 @@ draw-guess/
 ├─ requirements.txt       # 파이썬 패키지 목록
 ├─ app.py                 # 웹 서버, 화면 연결, 실시간 이벤트
 ├─ game.py                # 방·턴·정답 판정·점수 (게임 규칙)
-├─ data/words.json        # 제시어 사전
-├─ templates/index.html   # 게임 화면
-├─ static/                # 화면용 JS·CSS
+├─ data/words.json        # 제시어 사전 (535개)
+├─ templates/index.html   # 화면 4개 (메인·대기실·게임·결과)
+├─ static/
+│  ├─ main.js             # 메인·대기실, 화면 전환, 다시 연결
+│  ├─ game.js             # 게임·결과 화면, 채팅, 효과음
+│  ├─ canvas.js           # 그림판과 그리기 도구
+│  ├─ style.css           # 디자인 (PC·태블릿·휴대폰)
+│  └─ canvas-test.html    # 그림판 연습 페이지
+├─ tests/                 # pytest 테스트
+├─ tools/latency_check.py # 그림 전달 지연 측정
 └─ docs/
    ├─ requirements.md     # 무엇이 되어야 하나
    ├─ design.md           # 어떤 구조로 만들까
@@ -57,6 +64,16 @@ python app.py
 5. 출제자는 제시어를 골라 그림을 그리고, 나머지는 채팅으로 정답을 입력합니다.
 6. 3라운드가 끝나면 최종 순위가 나옵니다.
 
+## 테스트
+
+```bash
+python -m pytest                      # 규칙·이벤트 테스트
+pip install "python-socketio[client]" websocket-client
+python tools/latency_check.py         # 켜 둔 서버의 그림 전달 지연 측정
+```
+
+- 그림판만 따로 연습: `http://localhost:5000/static/canvas-test.html`
+
 ## 문서
 
 - [요구사항](docs/requirements.md): 게임이 무엇을 해야 하는지
@@ -64,3 +81,4 @@ python app.py
 - [와이어프레임](docs/wireframes.md): 화면 4개 배치
 - [작업 순서](docs/tasks.md): 단계별 구현 계획과 일정
 - [진행 상황](docs/progress.md): 지금 어디까지 했는지
+- [플레이 테스트](docs/playtest.md): 자동 테스트 결과, 지인 테스트 계획
