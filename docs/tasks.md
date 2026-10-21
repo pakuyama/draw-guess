@@ -10,7 +10,7 @@
 
 ## 2주차 — 방 만들기 · 참가 (R1, R2)
 
-- [ ] T4. `game.py`: `Room`, `Player` 클래스, 6자리 방 코드 생성
+- [x] T4. `game.py`: `Room`, `Player` 클래스, 6자리 방 코드 생성
 - [ ] T5. `app.py`: `create_room`, `join_room` 이벤트, `room_state` 전송
 - [ ] T6. 메인·대기실 화면, 참가자 목록 실시간 갱신
 - [ ] T7. 8명 제한, 없는 방 코드 오류 메시지
