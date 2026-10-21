@@ -91,3 +91,41 @@ def test_ninth_player_gets_full_message_and_others_unchanged():
     assert events(ninth, "error") == [{"message": "방이 가득 찼어요. (8/8)"}]
     assert events(ninth, "room_state") == []
     assert events(host, "room_state") == []  # 실패한 입장은 방 사람들에게 알리지 않는다
+
+
+def drawing_setup():
+    """윤하(출제자)와 민수가 그리는 중인 방."""
+    host = connect()
+    host.emit("create_room", {"player_id": "p1", "nickname": "윤하"})
+    code = events(host, "room_created")[0]["code"]
+    guest = connect()
+    guest.emit("join_room", {"code": code, "player_id": "p2", "nickname": "민수"})
+    room = game.get_room(code)
+    room.state = "drawing"
+    room.drawer_index = 0
+    host.get_received()
+    guest.get_received()
+    return host, guest, room
+
+
+def test_stroke_is_relayed_to_others_only():
+    host, guest, room = drawing_setup()
+    data = {"id": "a-1", "color": "#222222", "width": 0.012, "points": [[0.1, 0.1], [0.2, 0.2]]}
+    host.emit("stroke", data)
+    assert events(guest, "stroke") == [data]
+    assert events(host, "stroke") == []  # 그린 사람에게는 다시 보내지 않는다
+    assert room.strokes[0]["points"] == [[0.1, 0.1], [0.2, 0.2]]
+
+
+def test_stroke_from_non_drawer_is_ignored():
+    host, guest, room = drawing_setup()
+    guest.emit("stroke", {"id": "b-1", "color": "#222222", "width": 0.012, "points": [[0.5, 0.5]]})
+    assert events(host, "stroke") == []
+    assert room.strokes == []
+
+
+def test_bad_stroke_is_ignored():
+    host, guest, room = drawing_setup()
+    host.emit("stroke", {"id": "a-1", "color": "#222222", "width": 0.012, "points": [[9, 9]]})
+    assert events(guest, "stroke") == []
+    assert events(host, "error") == []
