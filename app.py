@@ -36,4 +36,6 @@ def on_create_room(data):
 
 
 if __name__ == "__main__":
-    socketio.run(app, host="0.0.0.0", port=5000, debug=True)
+    # 개발용 실행. allow_unsafe_werkzeug: 터미널이 아닌 곳(IDE 실행 버튼 등)에서도 켜지도록 허용
+    # 실제 배포(T26)에서는 gunicorn 등 운영용 서버를 사용한다.
+    socketio.run(app, host="0.0.0.0", port=5000, debug=True, allow_unsafe_werkzeug=True)
