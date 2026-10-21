@@ -115,9 +115,16 @@ def normalize_code(code: str) -> str:
     return (code or "").replace(" ", "").strip().upper()
 
 
+def check_player_id(player_id: str) -> str:
+    """브라우저가 보낸 player_id가 비어 있지 않은지 확인한다."""
+    if not player_id:
+        raise ValueError("접속 정보가 없어요. 새로고침해 주세요.")
+    return player_id
+
+
 def create_room(player_id: str, nickname: str) -> Room:
     """새 방을 만들고 만든 사람을 방장으로 넣는다."""
-    host = Player(player_id=player_id, nickname=clean_nickname(nickname))
+    host = Player(player_id=check_player_id(player_id), nickname=clean_nickname(nickname))
     room = Room(code=make_room_code(), host_id=player_id)
     room.add_player(host)
     rooms[room.code] = room
@@ -127,6 +134,16 @@ def create_room(player_id: str, nickname: str) -> Room:
 def get_room(code: str) -> Room | None:
     """방 코드로 방을 찾는다. 없으면 None."""
     return rooms.get(normalize_code(code))
+
+
+def join_room(code: str, player_id: str, nickname: str) -> tuple[Room, Player]:
+    """방 코드로 방에 들어간다. 실패하면 이유를 담은 ValueError."""
+    room = get_room(code)
+    if room is None:
+        raise ValueError("없는 방 코드예요.")
+    player = Player(player_id=check_player_id(player_id), nickname=clean_nickname(nickname))
+    room.add_player(player)
+    return room, player
 
 
 def load_words() -> dict[str, list[str]]:
