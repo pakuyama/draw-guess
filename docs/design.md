@@ -7,6 +7,7 @@
 | 서버 | Python + Flask | 배우기 쉽고 코드가 짧음 |
 | 실시간 통신 | Flask-SocketIO (WebSocket) | 방(room) 기능이 내장되어 있음 |
 | 화면 | HTML + CSS + JavaScript, HTML5 Canvas | 설치 없이 브라우저에서 동작 |
+| 브라우저 통신 | Socket.IO 클라이언트 4.7.5 (cdnjs에서 불러옴) | 서버(python-socketio 5.x)와 맞는 버전 |
 | 데이터 | 서버 메모리 + `data/words.json` | MVP는 DB 없이 충분 |
 | 배포 | Render 또는 Fly.io | 무료/저가로 WebSocket 지원 |
 
