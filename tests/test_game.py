@@ -101,3 +101,35 @@ def test_join_room_errors():
         game.join_room(room.code, "p2", "  ")
     with pytest.raises(ValueError, match="접속 정보"):
         game.join_room(room.code, "", "민수")
+
+
+def test_join_room_error_messages_in_order():
+    """design.md 3장의 입장 오류 메시지 순서."""
+    room = game.create_room("p1", "윤하")
+    cases = [
+        (("", "p2", " "), "닉네임을 입력해 주세요."),
+        (("AB12", "p2", "민수"), "방 코드 6자리를 입력해 주세요."),
+        (("ZZZZZZ", "p2", "민수"), "없는 방 코드예요."),
+        ((room.code, "p1", "윤하"), "이미 이 방에 들어와 있어요. 다른 창이나 탭을 확인해 주세요."),
+    ]
+    for args, message in cases:
+        with pytest.raises(ValueError) as err:
+            game.join_room(*args)
+        assert str(err.value) == message
+
+
+def test_join_room_full_message():
+    room = game.create_room("p0", "방장")
+    for i in range(1, 8):
+        game.join_room(room.code, f"p{i}", f"사람{i}")
+    with pytest.raises(ValueError) as err:
+        game.join_room(room.code, "p8", "아홉째")
+    assert str(err.value) == "방이 가득 찼어요. (8/8)"
+    assert len(room.players) == 8
+
+
+def test_cannot_join_game_in_progress():
+    room = game.create_room("p1", "윤하")
+    room.state = "drawing"
+    with pytest.raises(ValueError, match="이미 게임이 진행 중"):
+        game.join_room(room.code, "p2", "민수")
