@@ -6,6 +6,8 @@
 - 인원: 한 방에 2~8명
 - 플랫폼: PC·모바일 웹 브라우저 (설치 필요 없음)
 - 기술: Python (Flask + Flask-SocketIO), HTML5 Canvas
+- 바로 하기: https://draw-guess-6jsk.onrender.com
+  (무료 서버라 15분 동안 아무도 없으면 잠들어요. 처음 접속할 때 50초쯤 걸릴 수 있어요)
 
 ## 폴더 구조
 
@@ -54,6 +56,15 @@ python app.py
 
 브라우저에서 `http://localhost:5000` 에 접속합니다.
 같은 와이파이의 다른 기기에서는 `http://<내 PC의 IP>:5000` 으로 접속할 수 있습니다.
+
+## 배포 (Render)
+
+저장소의 `render.yaml`에 설정이 들어 있습니다.
+
+1. Render 대시보드 > **New > Blueprint** 에서 이 저장소 주소를 넣고 **Deploy Blueprint**
+2. 서버는 `gunicorn -w 1 --threads 100`으로 실행됩니다. 방 정보를 메모리에 두므로 워커는 1개여야 합니다.
+3. 상태 확인: `/healthz`
+4. 코드를 바꾼 뒤에는 서비스 화면의 **Manual Deploy > Deploy latest commit** 으로 다시 배포합니다.
 
 ## 사용 방법
 
