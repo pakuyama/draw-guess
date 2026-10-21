@@ -21,13 +21,9 @@ def index():
 @socketio.on("create_room")
 def on_create_room(data):
     """방 만들기 (T5에서 완성)."""
-    code = game.make_room_code()
-    host = game.Player(player_id=data["player_id"], nickname=data["nickname"])
-    room = game.Room(code=code, host_id=host.player_id)
-    room.add_player(host)
-    game.rooms[code] = room
-    join_room(code)
-    emit("room_created", {"code": code})
+    room = game.create_room(data["player_id"], data["nickname"])
+    join_room(room.code)
+    emit("room_created", {"code": room.code})
 
 
 # TODO T5: join_room / room_state
