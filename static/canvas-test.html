@@ -17,10 +17,8 @@
     <div class="board-wrap">
       <canvas id="board" class="board"></canvas>
     </div>
-    <div class="board-tools">
-      <button id="btn-clear" class="btn small">전체 지우기</button>
-      <span id="info" class="note"></span>
-    </div>
+    <div id="tools"></div>
+    <p id="info" class="note"></p>
   </main>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
@@ -33,10 +31,7 @@
       },
     });
     window.board = board; // 자동 테스트에서 확인용
-    document.getElementById("btn-clear").addEventListener("click", () => {
-      board.clear();
-      info.textContent = "";
-    });
+    const tools = buildToolbar(document.getElementById("tools"), board);
 
     // ?room=코드&name=닉네임 이 있으면 방에 연결한다 (room=new 이면 새 방)
     const params = new URLSearchParams(location.search);
@@ -51,11 +46,13 @@
       const socket = io();
       window.socket = socket;
       board.enabled = false;
+      tools.hidden = true;
       if (params.get("room") === "new") socket.emit("create_room", { player_id: playerId, nickname: name });
       else socket.emit("join_room", { code: params.get("room"), player_id: playerId, nickname: name });
       socket.on("room_state", (state) => {
         window.roomState = state;
         board.enabled = state.state === "drawing" && state.drawer_id === playerId;
+        tools.hidden = !board.enabled;
         info.textContent = `방 ${state.code} · ${board.enabled ? "내가 출제자" : "보는 중"}`;
       });
       socket.on("error", (data) => (info.textContent = data.message));

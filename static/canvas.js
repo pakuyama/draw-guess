@@ -10,9 +10,29 @@
 //   board.applyPart(part);         // 다른 사람이 보낸 선 조각 그리기
 //   board.clear();                 // 전체 지우기
 //   linkBoardToSocket(board, socket);  // 그리는 선을 서버로 보내고, 받은 선을 그린다 (T9)
+//   buildToolbar(container, board);    // 색·굵기·지우개·되돌리기·전체 지우기 버튼 (T10)
 
-const DEFAULT_COLOR = "#222222";
-const DEFAULT_WIDTH = 0.012; // 캔버스 너비의 1.2%
+// 그리기 도구. 서버(game.PALETTE, game.WIDTHS)와 같은 값을 쓴다.
+const PALETTE = [
+  ["#222222", "검정"],
+  ["#e53935", "빨강"],
+  ["#fb8c00", "주황"],
+  ["#fdd835", "노랑"],
+  ["#43a047", "초록"],
+  ["#1e88e5", "파랑"],
+  ["#8e24aa", "보라"],
+  ["#6d4c41", "갈색"],
+];
+const WIDTHS = [
+  [0.006, "가늘게"],
+  [0.012, "보통"],
+  [0.024, "굵게"],
+];
+const ERASER_COLOR = "#ffffff";
+const ERASER_WIDTH = 0.04;
+
+const DEFAULT_COLOR = PALETTE[0][0];
+const DEFAULT_WIDTH = WIDTHS[1][0]; // 캔버스 너비의 1.2%
 const MIN_GAP = 0.002; // 이보다 가까운 점은 버려서 데이터를 줄인다
 const BACKGROUND = "#ffffff";
 const SEND_INTERVAL = 40; // ms. 이 간격으로 새 점을 묶어 보낸다 (design.md: 30~50ms)
@@ -27,10 +47,13 @@ class DrawingBoard {
     this.canvas = canvas;
     this.ctx = canvas.getContext("2d");
     this.onStroke = options.onStroke || null;
+    this.onUndo = null; // 내가 되돌렸을 때 (서버로 알리기)
+    this.onClear = null; // 내가 전체 지웠을 때 (서버로 알리기)
 
     this.enabled = true;
     this.color = DEFAULT_COLOR;
     this.width = DEFAULT_WIDTH;
+    this.eraser = false; // 지우개: 흰색 굵은 선으로 덮는다
 
     this.strokes = []; // 완성된 선 목록
     this.current = null; // 지금 그리는 선
@@ -82,8 +105,8 @@ class DrawingBoard {
     strokeCount += 1;
     this.current = {
       id: `${STROKE_PREFIX}-${strokeCount}`,
-      color: this.color,
-      width: this.width,
+      color: this.eraser ? ERASER_COLOR : this.color,
+      width: this.eraser ? ERASER_WIDTH : this.width,
       points: [this._toRatio(event)],
     };
     this.outbox.push({ stroke: this.current, sent: 0 });
@@ -147,10 +170,19 @@ class DrawingBoard {
 
   _drawStroke(stroke) {
     if (!stroke.points || stroke.points.length === 0) return;
-    this._drawDot(stroke);
-    for (let i = 1; i < stroke.points.length; i++) {
-      this._drawSegment(stroke, stroke.points[i - 1], stroke.points[i]);
+    if (stroke.points.length === 1) {
+      this._drawDot(stroke);
+      return;
     }
+    // 한 경로로 그려서 굵은 선의 이음새가 보이지 않게 한다
+    const size = this._size();
+    this._style(stroke);
+    this.ctx.beginPath();
+    this.ctx.moveTo(stroke.points[0][0] * size, stroke.points[0][1] * size);
+    for (let i = 1; i < stroke.points.length; i++) {
+      this.ctx.lineTo(stroke.points[i][0] * size, stroke.points[i][1] * size);
+    }
+    this.ctx.stroke();
   }
 
   _paintBackground() {
@@ -197,7 +229,41 @@ class DrawingBoard {
     return parts;
   }
 
-  /** 모든 선을 지운다. */
+  /** 선 목록 전체를 받아 처음부터 다시 그린다. (늦게 들어왔거나 다시 연결했을 때) */
+  load(strokes) {
+    this.strokes = strokes.map((s) => ({ ...s, points: s.points.map((p) => [p[0], p[1]]) }));
+    this.current = null;
+    this.pointerId = null;
+    this.outbox = [];
+    this.redraw();
+  }
+
+  /** 내가 그린 마지막 선을 되돌린다. (출제자) */
+  undo() {
+    if (!this.enabled || this.current || this.strokes.length === 0) return null;
+    const stroke = this.strokes.pop();
+    this.redraw();
+    if (this.onUndo) this.onUndo(stroke.id);
+    return stroke.id;
+  }
+
+  /** 다른 사람이 되돌린 선을 지운다. */
+  applyUndo(strokeId) {
+    const last = this.strokes[this.strokes.length - 1];
+    if (last && last.id === strokeId) {
+      this.strokes.pop();
+      this.redraw();
+    }
+  }
+
+  /** 내가 전체 지우기를 눌렀을 때. (출제자) */
+  clearAll() {
+    if (!this.enabled) return;
+    this.clear();
+    if (this.onClear) this.onClear();
+  }
+
+  /** 모든 선을 지운다. (화면만. 새 턴이나 받은 지우기에 쓴다) */
   clear() {
     this.strokes = [];
     this.current = null;
@@ -244,6 +310,87 @@ function linkBoardToSocket(board, socket) {
     if (!socket.connected) return;
     for (const part of board.takeParts()) socket.emit("stroke", part);
   }, SEND_INTERVAL);
+  const flush = () => {
+    for (const part of board.takeParts()) socket.emit("stroke", part);
+  };
+  board.onUndo = (id) => {
+    flush();
+    socket.emit("undo", { id });
+  };
+  board.onClear = () => socket.emit("clear", {});
   socket.on("stroke", (part) => board.applyPart(part));
+  socket.on("undo", (data) => board.applyUndo(data.id));
+  socket.on("clear", () => board.clear());
+  socket.on("strokes", (data) => board.load(data.strokes));
   return () => clearInterval(timer);
+}
+
+/**
+ * 그리기 도구 막대를 만든다: 색 8가지, 굵기 3단계, 지우개, 되돌리기, 전체 지우기.
+ * 출제자가 아닐 때는 toolbar.hidden = true 로 숨긴다.
+ */
+function buildToolbar(container, board) {
+  container.replaceChildren();
+  container.classList.add("toolbar");
+
+  const group = (label) => {
+    const el = document.createElement("div");
+    el.className = "tool-group";
+    el.setAttribute("role", "group");
+    el.setAttribute("aria-label", label);
+    container.appendChild(el);
+    return el;
+  };
+  const button = (parent, label, className, onClick) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "tool " + className;
+    b.setAttribute("aria-label", label);
+    b.title = label;
+    b.addEventListener("click", onClick);
+    parent.appendChild(b);
+    return b;
+  };
+
+  const colors = group("색");
+  const colorButtons = PALETTE.map(([color, name]) => {
+    const b = button(colors, name, "swatch", () => {
+      board.color = color;
+      board.eraser = false;
+      refresh();
+    });
+    b.style.setProperty("--swatch", color);
+    b.dataset.color = color;
+    return b;
+  });
+
+  const widths = group("굵기");
+  const widthButtons = WIDTHS.map(([width, name], i) => {
+    const b = button(widths, name, "width", () => {
+      board.width = width;
+      refresh();
+    });
+    b.dataset.width = width;
+    b.style.setProperty("--dot", `${6 + i * 6}px`);
+    return b;
+  });
+
+  const actions = group("편집");
+  const eraser = button(actions, "지우개", "text", () => {
+    board.eraser = !board.eraser;
+    refresh();
+  });
+  eraser.textContent = "지우개";
+  const undo = button(actions, "되돌리기", "text", () => board.undo());
+  undo.textContent = "되돌리기";
+  const clear = button(actions, "전체 지우기", "text", () => board.clearAll());
+  clear.textContent = "전체 지우기";
+
+  function refresh() {
+    colorButtons.forEach((b) => b.setAttribute("aria-pressed", String(!board.eraser && b.dataset.color === board.color)));
+    widthButtons.forEach((b) => b.setAttribute("aria-pressed", String(Number(b.dataset.width) === board.width)));
+    eraser.setAttribute("aria-pressed", String(board.eraser));
+  }
+  refresh();
+  return container;
 }
