@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>그려봐! 그림판 연습</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- 개발용 연습 페이지 (T8). 게임 화면에 붙이는 건 T17. 주소: /static/canvas-test.html -->
+  <main class="card wide">
+    <h1 class="logo small">그림판 연습</h1>
+    <p class="note">마우스나 손가락으로 그려 보세요. 창 크기를 바꿔도 그림이 그대로 남아야 해요.</p>
+    <div class="board-wrap">
+      <canvas id="board" class="board"></canvas>
+    </div>
+    <div class="board-tools">
+      <button id="btn-clear" class="btn small">전체 지우기</button>
+      <span id="info" class="note"></span>
+    </div>
+  </main>
+
+  <script src="canvas.js"></script>
+  <script>
+    const info = document.getElementById("info");
+    const board = new DrawingBoard(document.getElementById("board"), {
+      onStroke: (stroke) => {
+        info.textContent = `선 ${board.strokes.length}개, 방금 그린 선의 점 ${stroke.points.length}개`;
+      },
+    });
+    window.board = board; // 자동 테스트에서 확인용
+    document.getElementById("btn-clear").addEventListener("click", () => {
+      board.clear();
+      info.textContent = "";
+    });
+  </script>
+</body>
+</html>
