@@ -83,3 +83,21 @@ def test_words_file_loads():
     words = game.load_words()
     assert set(words) == {"easy", "normal", "hard"}
     assert sum(len(v) for v in words.values()) >= 100
+
+
+def test_join_room_adds_player():
+    room = game.create_room("p1", "윤하")
+    joined, player = game.join_room(room.code.lower(), "p2", " 민수 ")
+    assert joined is room
+    assert player.nickname == "민수"
+    assert [p.player_id for p in room.players] == ["p1", "p2"]
+
+
+def test_join_room_errors():
+    room = game.create_room("p1", "윤하")
+    with pytest.raises(ValueError, match="없는 방 코드"):
+        game.join_room("ZZZZZZ", "p2", "민수")
+    with pytest.raises(ValueError, match="닉네임"):
+        game.join_room(room.code, "p2", "  ")
+    with pytest.raises(ValueError, match="접속 정보"):
+        game.join_room(room.code, "", "민수")
