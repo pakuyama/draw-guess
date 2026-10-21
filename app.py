@@ -1,9 +1,8 @@
 """웹 서버: 화면 제공과 실시간 이벤트 연결.
 
 게임 규칙은 game.py에 두고, 여기서는 받고 → 호출하고 → 보내기만 합니다.
-지금은 뼈대만 있으며, docs/tasks.md 순서대로 채워 나갑니다.
 """
-from flask import Flask, render_template
+from flask import Flask, render_template, request
 from flask_socketio import SocketIO, emit, join_room
 
 import game
@@ -18,17 +17,46 @@ def index():
     return render_template("index.html")
 
 
+def send_room_state(room: game.Room) -> None:
+    """방 안의 모든 사람에게 최신 방 정보를 보낸다."""
+    socketio.emit("room_state", room.public_state(), to=room.code)
+
+
 @socketio.on("create_room")
 def on_create_room(data):
-    """방 만들기 (T5에서 완성)."""
-    room = game.create_room(data["player_id"], data["nickname"])
+    """방 만들기: 만든 사람을 방장으로 넣고 방 정보를 보낸다."""
+    data = data or {}
+    try:
+        room = game.create_room(data.get("player_id", ""), data.get("nickname", ""))
+    except ValueError as err:
+        emit("error", {"message": str(err)})
+        return
+    room.players[0].sid = request.sid
     join_room(room.code)
-    emit("room_created", {"code": room.code})
+    emit("room_created", {"code": room.code, "player_id": room.host_id})
+    send_room_state(room)
 
 
-# TODO T5: join_room / room_state
+@socketio.on("join_room")
+def on_join_room(data):
+    """방 참가: 방 코드로 들어가고 방 전체에 새 참가자 목록을 보낸다."""
+    data = data or {}
+    try:
+        room, player = game.join_room(
+            data.get("code", ""), data.get("player_id", ""), data.get("nickname", "")
+        )
+    except ValueError as err:
+        emit("error", {"message": str(err)})
+        return
+    player.sid = request.sid
+    join_room(room.code)
+    emit("room_joined", {"code": room.code, "player_id": player.player_id})
+    send_room_state(room)
+
+
 # TODO T9: stroke / undo / clear
 # TODO T12~T15: start_game / choose_word / chat / 타이머
+# TODO T20~T21: disconnect / 재접속 / 방장 넘기기
 
 
 if __name__ == "__main__":
