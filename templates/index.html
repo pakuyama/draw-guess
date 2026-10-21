@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
+  <div id="conn-banner" class="conn-banner" role="status" hidden></div>
   <!-- 메인 화면: 닉네임 입력, 방 만들기, 방 코드로 참가 (wireframes.md 1장) -->
   <main id="screen-main" class="screen card">
     <h1 class="logo">그려봐!</h1>
@@ -59,7 +60,52 @@
     <p id="lobby-status" class="note center"></p>
   </main>
 
+  <!-- 게임 화면: 타이머·힌트, 점수판, 캔버스, 채팅, 그리기 도구 (wireframes.md 3장) -->
+  <main id="screen-game" class="screen game" hidden>
+    <header class="game-top">
+      <span id="round-label" class="round"></span>
+      <span id="hint" class="hint" aria-live="polite"></span>
+      <span class="top-right">
+        <span id="timer" class="timer" aria-label="남은 시간"></span>
+        <button id="btn-sound" class="btn small sound-toggle" type="button" aria-pressed="true">소리 켜짐</button>
+      </span>
+    </header>
+
+    <aside class="scoreboard" aria-label="점수판">
+      <ol id="scoreboard"></ol>
+    </aside>
+
+    <section class="stage">
+      <div class="board-wrap">
+        <canvas id="board" class="board" aria-label="그림판"></canvas>
+        <div id="overlay" class="overlay" hidden></div>
+      </div>
+      <div id="tools"></div>
+    </section>
+
+    <section class="chat" aria-label="채팅">
+      <ul id="chat-log" class="chat-log" aria-live="polite"></ul>
+      <form id="chat-form" class="chat-form" autocomplete="off">
+        <input id="chat-input" type="text" maxlength="50" placeholder="정답을 입력하세요">
+        <button class="btn small" type="submit">전송</button>
+      </form>
+    </section>
+  </main>
+
+  <!-- 결과 화면: 시상대, 전체 순위 (wireframes.md 4장) -->
+  <main id="screen-result" class="screen card result" hidden>
+    <h1 class="logo small center">최종 순위</h1>
+    <div id="podium" class="podium"></div>
+    <ol id="rank-rest" class="rank-rest"></ol>
+    <div class="result-buttons">
+      <button id="btn-again" class="btn primary">다시 하기</button>
+      <button id="btn-exit" class="btn">나가기</button>
+    </div>
+  </main>
+
   <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
+  <script src="{{ url_for('static', filename='canvas.js') }}"></script>
   <script src="{{ url_for('static', filename='main.js') }}"></script>
+  <script src="{{ url_for('static', filename='game.js') }}"></script>
 </body>
 </html>
