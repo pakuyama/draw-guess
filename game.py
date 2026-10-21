@@ -64,7 +64,7 @@ class Room:
         if self.is_full():
             raise ValueError(f"방이 가득 찼어요. ({MAX_PLAYERS}/{MAX_PLAYERS})")
         if self.find_player(player.player_id):
-            raise ValueError("이미 방에 있는 플레이어예요.")
+            raise ValueError("이미 이 방에 들어와 있어요. 다른 창이나 탭을 확인해 주세요.")
         self.players.append(player)
 
     def can_start(self) -> bool:
@@ -138,10 +138,15 @@ def get_room(code: str) -> Room | None:
 
 def join_room(code: str, player_id: str, nickname: str) -> tuple[Room, Player]:
     """방 코드로 방에 들어간다. 실패하면 이유를 담은 ValueError."""
+    nickname = clean_nickname(nickname)
+    if len(normalize_code(code)) != CODE_LENGTH:
+        raise ValueError("방 코드 6자리를 입력해 주세요.")
     room = get_room(code)
     if room is None:
         raise ValueError("없는 방 코드예요.")
-    player = Player(player_id=check_player_id(player_id), nickname=clean_nickname(nickname))
+    if room.state != "waiting":
+        raise ValueError("이미 게임이 진행 중이에요.")
+    player = Player(player_id=check_player_id(player_id), nickname=nickname)
     room.add_player(player)
     return room, player
 
