@@ -29,6 +29,11 @@ def test_home_page():
     assert res.status_code == 200
 
 
+def test_health_check():
+    res = server.app.test_client().get("/healthz")
+    assert res.status_code == 200 and res.get_json()["ok"] is True
+
+
 def test_create_room_sends_code_and_state():
     host = connect()
     host.emit("create_room", {"player_id": "p1", "nickname": "윤하"})
