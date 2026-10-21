@@ -1,0 +1,193 @@
+// 그림판: 마우스·터치·펜으로 그리기 (design.md 6장 "캔버스 좌표", "스트로크 형식")
+//
+// 선 하나(스트로크)는 아래 형식으로 저장한다. 좌표와 굵기는 캔버스 크기 대비 0~1 비율이라
+// PC와 휴대폰처럼 화면 크기가 달라도 같은 그림이 된다.
+//   { color: "#222222", width: 0.012, points: [[x, y], [x, y], ...] }
+//
+// 사용법:
+//   const board = new DrawingBoard(canvasElement, { onStroke: (stroke) => { ... } });
+//   board.enabled = true;          // 출제자만 true
+//   board.addStroke(stroke);       // 다른 사람이 그린 선 그리기 (T9)
+//   board.clear();                 // 전체 지우기
+
+const DEFAULT_COLOR = "#222222";
+const DEFAULT_WIDTH = 0.012; // 캔버스 너비의 1.2%
+const MIN_GAP = 0.002; // 이보다 가까운 점은 버려서 데이터를 줄인다
+const BACKGROUND = "#ffffff";
+
+class DrawingBoard {
+  constructor(canvas, options = {}) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext("2d");
+    this.onStroke = options.onStroke || null;
+
+    this.enabled = true;
+    this.color = DEFAULT_COLOR;
+    this.width = DEFAULT_WIDTH;
+
+    this.strokes = []; // 완성된 선 목록
+    this.current = null; // 지금 그리는 선
+    this.pointerId = null; // 한 번에 손가락·마우스 하나만 받는다
+
+    this._bindEvents();
+    this._watchSize();
+  }
+
+  // ---------- 좌표 변환 ----------
+
+  _toRatio(event) {
+    const rect = this.canvas.getBoundingClientRect();
+    const x = (event.clientX - rect.left) / rect.width;
+    const y = (event.clientY - rect.top) / rect.height;
+    return [clamp(x), clamp(y)];
+  }
+
+  _size() {
+    return this.canvas.width; // 정사각형이므로 너비 = 높이
+  }
+
+  // ---------- 입력 ----------
+
+  _bindEvents() {
+    const c = this.canvas;
+    c.addEventListener("pointerdown", (e) => this._start(e));
+    c.addEventListener("pointermove", (e) => this._move(e));
+    c.addEventListener("pointerup", (e) => this._end(e));
+    c.addEventListener("pointercancel", (e) => this._end(e));
+    c.addEventListener("lostpointercapture", (e) => this._end(e));
+    // 길게 누를 때 메뉴가 뜨지 않게 한다
+    c.addEventListener("contextmenu", (e) => e.preventDefault());
+  }
+
+  _start(event) {
+    if (!this.enabled || this.pointerId !== null) return;
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    event.preventDefault();
+
+    this.pointerId = event.pointerId;
+    try {
+      this.canvas.setPointerCapture(event.pointerId);
+    } catch (e) {
+      // 일부 브라우저는 캡처를 지원하지 않는다. 캡처 없이도 그리기는 된다.
+    }
+
+    this.current = { color: this.color, width: this.width, points: [this._toRatio(event)] };
+    this._drawDot(this.current);
+  }
+
+  _move(event) {
+    if (event.pointerId !== this.pointerId || !this.current) return;
+    event.preventDefault();
+
+    // 빠르게 움직일 때 브라우저가 합쳐 둔 중간 점까지 받아서 선이 끊기지 않게 한다
+    const events = event.getCoalescedEvents ? event.getCoalescedEvents() : [event];
+    for (const e of events.length ? events : [event]) {
+      const point = this._toRatio(e);
+      const points = this.current.points;
+      const last = points[points.length - 1];
+      if (distance(last, point) < MIN_GAP) continue;
+      points.push(point);
+      this._drawSegment(this.current, last, point);
+    }
+  }
+
+  _end(event) {
+    if (event.pointerId !== this.pointerId || !this.current) return;
+    const stroke = this.current;
+    this.current = null;
+    this.pointerId = null;
+
+    this.strokes.push(stroke);
+    if (this.onStroke) this.onStroke(stroke);
+  }
+
+  // ---------- 그리기 ----------
+
+  _style(stroke) {
+    const ctx = this.ctx;
+    ctx.strokeStyle = stroke.color;
+    ctx.fillStyle = stroke.color;
+    ctx.lineWidth = Math.max(1, stroke.width * this._size());
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+  }
+
+  _drawDot(stroke) {
+    const [x, y] = stroke.points[0];
+    const size = this._size();
+    this._style(stroke);
+    this.ctx.beginPath();
+    this.ctx.arc(x * size, y * size, this.ctx.lineWidth / 2, 0, Math.PI * 2);
+    this.ctx.fill();
+  }
+
+  _drawSegment(stroke, from, to) {
+    const size = this._size();
+    this._style(stroke);
+    this.ctx.beginPath();
+    this.ctx.moveTo(from[0] * size, from[1] * size);
+    this.ctx.lineTo(to[0] * size, to[1] * size);
+    this.ctx.stroke();
+  }
+
+  _drawStroke(stroke) {
+    if (!stroke.points || stroke.points.length === 0) return;
+    this._drawDot(stroke);
+    for (let i = 1; i < stroke.points.length; i++) {
+      this._drawSegment(stroke, stroke.points[i - 1], stroke.points[i]);
+    }
+  }
+
+  _paintBackground() {
+    this.ctx.fillStyle = BACKGROUND;
+    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+  }
+
+  /** 저장된 선을 처음부터 다시 그린다. (크기가 바뀌었을 때) */
+  redraw() {
+    this._paintBackground();
+    for (const stroke of this.strokes) this._drawStroke(stroke);
+    if (this.current) this._drawStroke(this.current);
+  }
+
+  /** 다른 사람이 그린 선을 추가한다. */
+  addStroke(stroke) {
+    this.strokes.push(stroke);
+    this._drawStroke(stroke);
+  }
+
+  /** 모든 선을 지운다. */
+  clear() {
+    this.strokes = [];
+    this.current = null;
+    this.pointerId = null;
+    this._paintBackground();
+  }
+
+  // ---------- 크기 ----------
+
+  _watchSize() {
+    const fit = () => {
+      // 화면에 보이는 크기 x 화면 배율(레티나 등)만큼 실제 픽셀을 잡아 선이 흐리지 않게 한다
+      const cssSize = this.canvas.getBoundingClientRect().width;
+      const pixels = Math.round(cssSize * (window.devicePixelRatio || 1));
+      if (pixels > 0 && (pixels !== this.canvas.width || pixels !== this.canvas.height)) {
+        this.canvas.width = pixels;
+        this.canvas.height = pixels;
+        this.redraw();
+      }
+    };
+    if (window.ResizeObserver) new ResizeObserver(fit).observe(this.canvas);
+    else window.addEventListener("resize", fit);
+    fit();
+    this.redraw(); // 처음 한 번 흰 배경을 칠한다
+  }
+}
+
+function clamp(value) {
+  return Math.min(1, Math.max(0, Math.round(value * 10000) / 10000));
+}
+
+function distance(a, b) {
+  return Math.hypot(a[0] - b[0], a[1] - b[1]);
+}
