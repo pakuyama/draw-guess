@@ -2,18 +2,25 @@
 //
 // 선 하나(스트로크)는 아래 형식으로 저장한다. 좌표와 굵기는 캔버스 크기 대비 0~1 비율이라
 // PC와 휴대폰처럼 화면 크기가 달라도 같은 그림이 된다.
-//   { color: "#222222", width: 0.012, points: [[x, y], [x, y], ...] }
+//   { id: "k3x9-1", color: "#222222", width: 0.012, points: [[x, y], [x, y], ...] }
 //
 // 사용법:
 //   const board = new DrawingBoard(canvasElement, { onStroke: (stroke) => { ... } });
 //   board.enabled = true;          // 출제자만 true
-//   board.addStroke(stroke);       // 다른 사람이 그린 선 그리기 (T9)
+//   board.applyPart(part);         // 다른 사람이 보낸 선 조각 그리기
 //   board.clear();                 // 전체 지우기
+//   linkBoardToSocket(board, socket);  // 그리는 선을 서버로 보내고, 받은 선을 그린다 (T9)
 
 const DEFAULT_COLOR = "#222222";
 const DEFAULT_WIDTH = 0.012; // 캔버스 너비의 1.2%
 const MIN_GAP = 0.002; // 이보다 가까운 점은 버려서 데이터를 줄인다
 const BACKGROUND = "#ffffff";
+const SEND_INTERVAL = 40; // ms. 이 간격으로 새 점을 묶어 보낸다 (design.md: 30~50ms)
+const MAX_PART_POINTS = 200; // 서버 한도(game.MAX_PART_POINTS)와 맞춘다
+
+// 선 번호: 브라우저마다 겹치지 않게 임의 앞부분 + 순번
+const STROKE_PREFIX = Math.random().toString(36).slice(2, 8);
+let strokeCount = 0;
 
 class DrawingBoard {
   constructor(canvas, options = {}) {
@@ -28,6 +35,7 @@ class DrawingBoard {
     this.strokes = []; // 완성된 선 목록
     this.current = null; // 지금 그리는 선
     this.pointerId = null; // 한 번에 손가락·마우스 하나만 받는다
+    this.outbox = []; // 아직 서버로 다 보내지 않은 내 선: { stroke, sent }
 
     this._bindEvents();
     this._watchSize();
@@ -71,7 +79,14 @@ class DrawingBoard {
       // 일부 브라우저는 캡처를 지원하지 않는다. 캡처 없이도 그리기는 된다.
     }
 
-    this.current = { color: this.color, width: this.width, points: [this._toRatio(event)] };
+    strokeCount += 1;
+    this.current = {
+      id: `${STROKE_PREFIX}-${strokeCount}`,
+      color: this.color,
+      width: this.width,
+      points: [this._toRatio(event)],
+    };
+    this.outbox.push({ stroke: this.current, sent: 0 });
     this._drawDot(this.current);
   }
 
@@ -150,10 +165,36 @@ class DrawingBoard {
     if (this.current) this._drawStroke(this.current);
   }
 
-  /** 다른 사람이 그린 선을 추가한다. */
-  addStroke(stroke) {
+  /** 다른 사람이 보낸 선 조각을 그린다. 같은 id면 이어 그리고, 새 id면 새 선을 시작한다. */
+  applyPart(part) {
+    const last = this.strokes[this.strokes.length - 1];
+    if (last && last.id === part.id) {
+      let prev = last.points[last.points.length - 1];
+      for (const point of part.points) {
+        last.points.push(point);
+        this._drawSegment(last, prev, point);
+        prev = point;
+      }
+      return;
+    }
+    const stroke = { id: part.id, color: part.color, width: part.width, points: [...part.points] };
     this.strokes.push(stroke);
     this._drawStroke(stroke);
+  }
+
+  /** 아직 안 보낸 내 점들을 조각으로 꺼낸다. 다 보낸 선은 outbox에서 뺀다. */
+  takeParts() {
+    const parts = [];
+    for (const item of this.outbox) {
+      const { stroke } = item;
+      while (item.sent < stroke.points.length) {
+        const points = stroke.points.slice(item.sent, item.sent + MAX_PART_POINTS);
+        parts.push({ id: stroke.id, color: stroke.color, width: stroke.width, points });
+        item.sent += points.length;
+      }
+    }
+    this.outbox = this.outbox.filter((item) => item.stroke === this.current);
+    return parts;
   }
 
   /** 모든 선을 지운다. */
@@ -161,6 +202,7 @@ class DrawingBoard {
     this.strokes = [];
     this.current = null;
     this.pointerId = null;
+    this.outbox = [];
     this._paintBackground();
   }
 
@@ -190,4 +232,18 @@ function clamp(value) {
 
 function distance(a, b) {
   return Math.hypot(a[0] - b[0], a[1] - b[1]);
+}
+
+/**
+ * 그림판과 소켓을 잇는다.
+ * - 내가 그린 점은 SEND_INTERVAL마다 묶어서 "stroke"로 보낸다.
+ * - 서버가 보낸 "stroke" 조각은 그림판에 그린다.
+ */
+function linkBoardToSocket(board, socket) {
+  const timer = setInterval(() => {
+    if (!socket.connected) return;
+    for (const part of board.takeParts()) socket.emit("stroke", part);
+  }, SEND_INTERVAL);
+  socket.on("stroke", (part) => board.applyPart(part));
+  return () => clearInterval(timer);
 }
