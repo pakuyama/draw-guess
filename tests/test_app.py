@@ -76,3 +76,18 @@ def test_create_room_without_nickname_sends_error():
     host = connect()
     host.emit("create_room", {"player_id": "p1", "nickname": ""})
     assert events(host, "error") == [{"message": "닉네임을 입력해 주세요."}]
+
+
+def test_ninth_player_gets_full_message_and_others_unchanged():
+    host = connect()
+    host.emit("create_room", {"player_id": "p0", "nickname": "방장"})
+    code = events(host, "room_created")[0]["code"]
+    for i in range(1, 8):
+        connect().emit("join_room", {"code": code, "player_id": f"p{i}", "nickname": f"사람{i}"})
+    host.get_received()
+
+    ninth = connect()
+    ninth.emit("join_room", {"code": code, "player_id": "p8", "nickname": "아홉째"})
+    assert events(ninth, "error") == [{"message": "방이 가득 찼어요. (8/8)"}]
+    assert events(ninth, "room_state") == []
+    assert events(host, "room_state") == []  # 실패한 입장은 방 사람들에게 알리지 않는다
