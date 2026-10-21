@@ -133,3 +133,86 @@ def test_cannot_join_game_in_progress():
     room.state = "drawing"
     with pytest.raises(ValueError, match="이미 게임이 진행 중"):
         game.join_room(room.code, "p2", "민수")
+
+
+def drawing_room():
+    """윤하가 출제자로 그리는 중인 방."""
+    room = game.create_room("p1", "윤하")
+    game.join_room(room.code, "p2", "민수")
+    room.state = "drawing"
+    room.drawer_index = 0
+    return room
+
+
+def part(stroke_id="a-1", points=None, color="#222222", width=0.012):
+    return {"id": stroke_id, "color": color, "width": width, "points": [[0.1, 0.2]] if points is None else points}
+
+
+def test_only_drawer_can_draw():
+    room = drawing_room()
+    assert room.drawer_id == "p1"
+    assert room.can_draw("p1")
+    assert not room.can_draw("p2")
+    room.state = "waiting"
+    assert room.drawer_id is None
+    assert not room.can_draw("p1")
+
+
+def test_stroke_parts_join_by_id():
+    room = drawing_room()
+    room.add_stroke_part("p1", part("a-1", [[0.1, 0.1], [0.2, 0.2]]))
+    room.add_stroke_part("p1", part("a-1", [[0.3, 0.3]]))
+    room.add_stroke_part("p1", part("a-2", [[0.5, 0.5]]))
+    assert [s["id"] for s in room.strokes] == ["a-1", "a-2"]
+    assert room.strokes[0]["points"] == [[0.1, 0.1], [0.2, 0.2], [0.3, 0.3]]
+
+
+def test_non_drawer_stroke_rejected():
+    room = drawing_room()
+    with pytest.raises(ValueError):
+        room.add_stroke_part("p2", part())
+    assert room.strokes == []
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        part(points=[[1.5, 0.2]]),
+        part(points=[[0.1]]),
+        part(points=[]),
+        part(points=[[0.1, 0.1]] * (game.MAX_PART_POINTS + 1)),
+        part(color="red"),
+        part(color="#12345"),
+        part(width=0.5),
+        part(stroke_id=""),
+        {"id": "a-1"},
+        "not a dict",
+    ],
+)
+def test_bad_stroke_data_rejected(bad):
+    room = drawing_room()
+    with pytest.raises(ValueError):
+        room.add_stroke_part("p1", bad)
+
+
+def test_stroke_points_rounded():
+    cleaned = game.clean_stroke_part(part(points=[[0.123456, 1]], color="#AABBCC"))
+    assert cleaned["points"] == [[0.1235, 1.0]]
+    assert cleaned["color"] == "#aabbcc"
+
+
+def test_turn_point_limit():
+    room = drawing_room()
+    chunk = [[0.5, 0.5]] * game.MAX_PART_POINTS
+    for i in range(game.MAX_TURN_POINTS // game.MAX_PART_POINTS):
+        room.add_stroke_part("p1", part(f"s-{i}", chunk))
+    with pytest.raises(ValueError):
+        room.add_stroke_part("p1", part("s-last", [[0.5, 0.5]]))
+
+
+def test_public_state_has_drawer_but_not_word():
+    room = drawing_room()
+    room.word = "고양이"
+    state = room.public_state()
+    assert state["drawer_id"] == "p1"
+    assert "고양이" not in str(state)
